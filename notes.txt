@@ -1,0 +1,3 @@
+I am learning Linux
+Linux is powerful
+I am learning python

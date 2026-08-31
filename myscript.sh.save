@@ -1,0 +1,4 @@
+#!/bin/bash
+echo "Hello! Yeh meri pehli Bash script hai."
+date
+
