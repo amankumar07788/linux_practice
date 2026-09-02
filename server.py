@@ -1,17 +1,17 @@
 from http.server import BaseHTTPRequestHandler, HTTPServer
 import json
+import os
 import logging
 
 HOST = "0.0.0.0"
 PORT = 5000
 
-API_KEY = "AMAN123"
+API_KEY = os.getenv("API_KEY")
 
 DATA_FILE = "/home/aman/my-server/data.json"
 LOG_FILE = "/home/aman/my-server/server.log"
 
 
-# Logging setup
 logging.basicConfig(
     filename=LOG_FILE,
     level=logging.INFO,
@@ -23,8 +23,16 @@ logger = logging.getLogger(__name__)
 
 class MyServer(BaseHTTPRequestHandler):
 
-    def send_json(self, data, status=200):
-        response = json.dumps(data).encode()
+    def send_json(self, status, message, data=None):
+        response_data = {
+            "status": status,
+            "message": message
+        }
+
+        if data is not None:
+            response_data["data"] = data
+
+        response = json.dumps(response_data).encode()
 
         self.send_response(status)
         self.send_header("Content-Type", "application/json")
@@ -42,10 +50,10 @@ class MyServer(BaseHTTPRequestHandler):
                 self.client_address[0]
             )
 
-            self.send_json({
-                "status": "error",
-                "message": "Unauthorized"
-            }, 401)
+            self.send_json(
+                401,
+                "Unauthorized"
+            )
 
             return False
 
@@ -60,29 +68,32 @@ class MyServer(BaseHTTPRequestHandler):
 
     def do_GET(self):
 
-        logger.info("GET request received: %s", self.path)
+        logger.info("GET request: %s", self.path)
 
         if self.path == "/health":
 
-            self.send_json({
-                "status": "ok",
-                "message": "Server is healthy"
-            })
+            self.send_json(
+                200,
+                "Server is healthy"
+            )
 
         elif self.path == "/api":
 
-            self.send_json({
-                "status": "success",
-                "message": "Python Server is running!"
-            })
+            self.send_json(
+                200,
+                "Python Server is running!"
+            )
 
         elif self.path == "/status":
 
-            self.send_json({
-                "status": "online",
-                "server": "Python",
-                "port": PORT
-            })
+            self.send_json(
+                200,
+                "Server is online",
+                {
+                    "server": "Python",
+                    "port": PORT
+                }
+            )
 
         elif self.path == "/data":
 
@@ -93,32 +104,44 @@ class MyServer(BaseHTTPRequestHandler):
                 with open(DATA_FILE, "r") as file:
                     data = json.load(file)
 
-                self.send_json(data)
+                self.send_json(
+                    200,
+                    "Data retrieved successfully",
+                    data
+                )
 
             except Exception as e:
 
-                logger.error("Error reading data.json: %s", e)
+                logger.error("Error reading data: %s", e)
 
-                self.send_json({
-                    "status": "error",
-                    "message": str(e)
-                }, 500)
+                self.send_json(
+                    500,
+                    "Error reading data"
+                )
 
         else:
 
-            self.send_json({
-                "status": "error",
-                "message": "Endpoint not found"
-            }, 404)
+            self.send_json(
+                404,
+                "Endpoint not found"
+            )
 
     def do_POST(self):
 
-        logger.info("POST request received: %s", self.path)
+        logger.info("POST request: %s", self.path)
 
-        if self.path == "/data":
+        if self.path != "/data":
 
-            if not self.check_api_key():
-                return
+            self.send_json(
+                404,
+                "Endpoint not found"
+            )
+            return
+
+        if not self.check_api_key():
+            return
+
+        try:
 
             content_length = int(
                 self.headers.get("Content-Length", 0)
@@ -126,47 +149,42 @@ class MyServer(BaseHTTPRequestHandler):
 
             body = self.rfile.read(content_length).decode()
 
-            try:
-                data = json.loads(body)
+            data = json.loads(body)
 
-                with open(DATA_FILE, "w") as file:
-                    json.dump(data, file, indent=4)
+            with open(DATA_FILE, "w") as file:
+                json.dump(data, file, indent=4)
 
-                logger.info("Data updated successfully")
+            logger.info("Data updated successfully")
 
-                self.send_json({
-                    "status": "success",
-                    "message": "Data updated successfully",
-                    "data": data
-                })
+            self.send_json(
+                200,
+                "Data updated successfully",
+                data
+            )
 
-            except json.JSONDecodeError:
+        except json.JSONDecodeError:
 
-                logger.warning("Invalid JSON received")
+            logger.warning("Invalid JSON received")
 
-                self.send_json({
-                    "status": "error",
-                    "message": "Invalid JSON"
-                }, 400)
+            self.send_json(
+                400,
+                "Invalid JSON"
+            )
 
-            except Exception as e:
+        except Exception as e:
 
-                logger.error("Error saving data: %s", e)
+            logger.error("Error saving data: %s", e)
 
-                self.send_json({
-                    "status": "error",
-                    "message": str(e)
-                }, 500)
-
-        else:
-
-            self.send_json({
-                "status": "error",
-                "message": "Endpoint not found"
-            }, 404)
+            self.send_json(
+                500,
+                "Error saving data"
+            )
 
 
-server = HTTPServer((HOST, PORT), MyServer)
+server = HTTPServer(
+    (HOST, PORT),
+    MyServer
+)
 
 logger.info("Server started on port %s", PORT)
 
@@ -177,9 +195,11 @@ try:
     server.serve_forever()
 
 except KeyboardInterrupt:
+
     print("\nServer stopped.")
     logger.info("Server stopped manually")
 
 finally:
+
     server.server_close()
     logger.info("Server closed")

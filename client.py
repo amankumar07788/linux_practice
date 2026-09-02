@@ -1,88 +1,104 @@
-import urllib.request
-import json
+import requests
 
-BASE_URL = "http://127.0.0.1:5000"
+SERVER = "http://127.0.0.1:5000"
 API_KEY = "AMAN123"
+TIMEOUT = 5
+
+HEADERS = {
+    "X-API-Key": API_KEY
+}
 
 
-def get_request(endpoint, protected=False):
+def make_request(method, url, **kwargs):
     try:
-        headers = {}
-
-        if protected:
-            headers["X-API-Key"] = API_KEY
-
-        request = urllib.request.Request(
-            BASE_URL + endpoint,
-            headers=headers
+        response = requests.request(
+            method,
+            url,
+            timeout=TIMEOUT,
+            **kwargs
         )
 
-        with urllib.request.urlopen(request) as response:
-            return json.loads(response.read().decode())
+        print("\nHTTP Status:", response.status_code)
+        print("Response:")
 
-    except Exception as e:
-        return {"error": str(e)}
+        try:
+            print(response.json())
+        except ValueError:
+            print(response.text)
 
+    except requests.exceptions.Timeout:
+        print("\nError: Server request timed out.")
 
-def post_data(data):
-    try:
-        json_data = json.dumps(data).encode()
+    except requests.exceptions.ConnectionError:
+        print("\nError: Could not connect to the server.")
 
-        request = urllib.request.Request(
-            BASE_URL + "/data",
-            data=json_data,
-            headers={
-                "Content-Type": "application/json",
-                "X-API-Key": API_KEY
-            },
-            method="POST"
-        )
-
-        with urllib.request.urlopen(request) as response:
-            return json.loads(response.read().decode())
-
-    except Exception as e:
-        return {"error": str(e)}
+    except requests.exceptions.RequestException as e:
+        print(f"\nRequest error: {e}")
 
 
-while True:
+def health_check():
+    make_request("GET", f"{SERVER}/health")
 
-    print("\n===== PYTHON SERVER CLIENT =====")
-    print("1. Health Check")
-    print("2. Get Data")
-    print("3. Update Data")
-    print("4. Server Status")
-    print("5. Exit")
 
-    choice = input("Enter your choice: ")
+def get_data():
+    make_request(
+        "GET",
+        f"{SERVER}/data",
+        headers=HEADERS
+    )
 
-    if choice == "1":
-        result = get_request("/health")
-        print(json.dumps(result, indent=4))
 
-    elif choice == "2":
-        result = get_request("/data", protected=True)
-        print(json.dumps(result, indent=4))
+def update_data():
+    data = {
+        "name": "Aman",
+        "course": "Python Server",
+        "step": "28"
+    }
 
-    elif choice == "3":
-        name = input("Enter name: ")
-        course = input("Enter course: ")
+    make_request(
+        "POST",
+        f"{SERVER}/data",
+        headers=HEADERS,
+        json=data
+    )
 
-        data = {
-            "name": name,
-            "course": course
-        }
 
-        result = post_data(data)
-        print(json.dumps(result, indent=4))
+def server_status():
+    make_request("GET", f"{SERVER}/status")
 
-    elif choice == "4":
-        result = get_request("/status")
-        print(json.dumps(result, indent=4))
 
-    elif choice == "5":
-        print("Client closed.")
-        break
+def main():
+    while True:
+        print("\n==============================")
+        print("      PYTHON SERVER CLIENT")
+        print("==============================")
+        print("1. Health Check")
+        print("2. Get Data")
+        print("3. Update Data")
+        print("4. Server Status")
+        print("5. Exit")
 
-    else:
-        print("Invalid choice!")
+        choice = input("\nEnter your choice: ")
+
+        if choice == "1":
+            health_check()
+
+        elif choice == "2":
+            get_data()
+
+        elif choice == "3":
+            update_data()
+
+        elif choice == "4":
+            server_status()
+
+        elif choice == "5":
+            print("Client exited.")
+            break
+
+        else:
+            print("Invalid choice. Please try again.")
+
+
+if __name__ == "__main__":
+    main()
