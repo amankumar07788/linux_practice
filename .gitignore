@@ -3,3 +3,5 @@ server_backup.db
 .env
 server.log
 __pycache__/
+*.backup
+server_backup*.py
