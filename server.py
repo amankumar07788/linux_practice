@@ -1,5 +1,6 @@
 import os
 import json
+import sqlite3
 import logging
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from dotenv import load_dotenv
@@ -11,7 +12,7 @@ PORT = 5000
 
 API_KEY = os.getenv("API_KEY")
 
-DATA_FILE = "/home/aman/my-server/data.json"
+DB_FILE = "/home/aman/my-server/server.db"
 LOG_FILE = "/home/aman/my-server/server.log"
 
 logging.basicConfig(
@@ -21,17 +22,54 @@ logging.basicConfig(
 )
 
 
-def read_data():
-    try:
-        with open(DATA_FILE, "r") as file:
-            return json.load(file)
-    except (FileNotFoundError, json.JSONDecodeError):
+def get_db_connection():
+    conn = sqlite3.connect(DB_FILE)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def save_data(data):
+    conn = get_db_connection()
+
+    conn.execute("DELETE FROM data")
+
+    conn.execute(
+        "INSERT INTO data (name, course, version) VALUES (?, ?, ?)",
+        (
+            data.get("name"),
+            data.get("course"),
+            data.get("version")
+        )
+    )
+
+    conn.commit()
+    conn.close()
+
+
+def get_data():
+    conn = get_db_connection()
+
+    row = conn.execute(
+        "SELECT name, course, version FROM data ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+
+    conn.close()
+
+    if row is None:
         return {}
 
+    return {
+        "name": row["name"],
+        "course": row["course"],
+        "version": row["version"]
+    }
 
-def write_data(data):
-    with open(DATA_FILE, "w") as file:
-        json.dump(data, file, indent=4)
+
+def delete_data():
+    conn = get_db_connection()
+    conn.execute("DELETE FROM data")
+    conn.commit()
+    conn.close()
 
 
 class MyServer(BaseHTTPRequestHandler):
@@ -99,7 +137,7 @@ class MyServer(BaseHTTPRequestHandler):
             if not self.check_api_key():
                 return
 
-            data = read_data()
+            data = get_data()
 
             self.send_json(
                 200,
@@ -146,13 +184,13 @@ class MyServer(BaseHTTPRequestHandler):
                 body.decode("utf-8")
             )
 
-            write_data(new_data)
+            save_data(new_data)
 
             self.send_json(
                 200,
                 {
                     "status": "ok",
-                    "message": "Data updated successfully",
+                    "message": "Data created successfully",
                     "data": new_data
                 }
             )
@@ -205,7 +243,7 @@ class MyServer(BaseHTTPRequestHandler):
                 body.decode("utf-8")
             )
 
-            write_data(new_data)
+            save_data(new_data)
 
             self.send_json(
                 200,
@@ -254,7 +292,7 @@ class MyServer(BaseHTTPRequestHandler):
             return
 
         try:
-            write_data({})
+            delete_data()
 
             self.send_json(
                 200,
@@ -277,7 +315,7 @@ class MyServer(BaseHTTPRequestHandler):
 
 
 def run_server():
-    server =  ThreadingHTTPServer(
+    server = ThreadingHTTPServer(
         (HOST, PORT),
         MyServer
     )
