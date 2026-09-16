@@ -1,47 +1,39 @@
 # Python Server Software
 
-A simple Python HTTP server with:
+A lightweight HTTP server built with Python, SQLite and API-key authentication.
 
-- REST API endpoints
-- API key authentication
-- JSON data storage
-- Client application
-- Server logging
-- Log rotation
-- Systemd service
-- Git and GitHub integration
+## Features
+
+- HTTP server using Python
+- REST-style CRUD API
+- SQLite database
+- API-key authentication
+- JSON request and response
+- Multiple records
+- Logging
+- systemd service
+- Health and status endpoints
+- Error handling
 
 ## API Endpoints
 
-### Health Check
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/health` | Server health |
+| GET | `/status` | Server status |
+| GET | `/api` | API information |
+| GET | `/data` | Get all records |
+| POST | `/data` | Create a record |
+| PUT | `/data` | Update a record by ID |
+| DELETE | `/data` | Delete a record by ID |
 
-GET `/health`
+## Authentication
 
-### Server API
-
-GET `/api`
-
-### Server Status
-
-GET `/status`
-
-### Protected Data
-
-GET `/data`
-
-Requires:
+Protected `/data` endpoints require:
 
 `X-API-Key`
 
-### Update Data
-
-POST `/data`
-
-Requires:
-
-`X-API-Key`
-
-## Run Client
+Example:
 
 ```bash
-python3 client.py
+curl -H "X-API-Key: AMAN123" http://127.0.0.1:5000/data
