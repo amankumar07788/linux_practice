@@ -1,4 +1,5 @@
 import os
+import os
 import json
 import sqlite3
 import logging
@@ -9,7 +10,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 # =========================
 
 HOST = "0.0.0.0"
-PORT = 5000
+PORT = int(os.environ.get("PORT", 5000))
 
 BASE_DIR = "/home/aman/my-server"
 DB_FILE = os.path.join(BASE_DIR, "server.db")
